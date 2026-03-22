@@ -3,14 +3,10 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import Stripe from "stripe";
 import { getDb } from "./db";
 import { orders } from "../drizzle/schema";
 import { getProductById, PRODUCTS } from "./products";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-02-25.clover",
-});
+import { getStripe } from "./stripe";
 
 export const appRouter = router({
   system: systemRouter,
@@ -46,7 +42,7 @@ export const appRouter = router({
         const sizeOption = product.sizes.find((s) => s.size === input.size);
         if (!sizeOption) throw new Error("Size not found");
 
-        const session = await stripe.checkout.sessions.create({
+        const session = await getStripe().checkout.sessions.create({
           mode: "payment",
           payment_method_types: ["card"],
           allow_promotion_codes: true,
@@ -106,7 +102,7 @@ export const appRouter = router({
     verifySession: publicProcedure
       .input(z.object({ sessionId: z.string() }))
       .query(async ({ input }) => {
-        const session = await stripe.checkout.sessions.retrieve(input.sessionId);
+        const session = await getStripe().checkout.sessions.retrieve(input.sessionId);
         return {
           status: session.payment_status,
           customerEmail: session.customer_email,

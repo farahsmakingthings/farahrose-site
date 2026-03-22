@@ -9,11 +9,19 @@ import { getDb } from "./db";
 import { orders } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-02-25.clover",
-});
+let _stripe: Stripe | null = null;
 
-export { stripe };
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error("STRIPE_SECRET_KEY is not configured");
+    }
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2026-02-25.clover",
+    });
+  }
+  return _stripe;
+}
 
 /**
  * Register the raw webhook route BEFORE express.json() middleware.
@@ -39,7 +47,7 @@ export function registerStripeWebhook(app: Express) {
       let event: Stripe.Event;
 
       try {
-        event = stripe.webhooks.constructEvent(
+        event = getStripe().webhooks.constructEvent(
           rawBody,
           sig as string,
           process.env.STRIPE_WEBHOOK_SECRET!
